@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Checkpoints and model weights
+# Thư mục chứa checkpoint gốc của MedCLIP
+checkpoints/
+# Thư mục chứa checkpoint bạn huấn luyện
+checkpoints_final/
+checkpoints_BTXRD_Cleaned/
+# Generated files and outputs
+prompt/prompt_cache.pt
+*.log
+training_visualizations/
+*.json
+*.pt# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Checkpoints and model weights
+# Thư mục chứa checkpoint gốc của MedCLIP
+checkpoints/
+# Thư mục chứa checkpoint bạn huấn luyện
+checkpoints_final/
+checkpoints_BTXRD_Cleaned/
+
+# Generated files and outputs
+prompt/prompt_cache.pt
+*.log
+training_visualizations/
