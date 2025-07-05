@@ -70,33 +70,33 @@ class BinaryDiceLoss(nn.Module):
         return 1 - dice.mean()
 
 # --- Multi-channel BCE + Dice for Segmentation ---
-def multi_channel_focal_dice_loss(pred, target, gamma=2.0, alpha=0.25):
+def multi_channel_focal_dice_loss(pred, target):
     """
-    A combination of Focal Loss and Dice Loss for multi-label segmentation.
-    pred, target: [B, C, H, W] where C = number of classes (18)
+    Phiên bản kết hợp BCE và Dice Loss ổn định về mặt số học.
+    Hàm này tính toán Dice loss trên từng mẫu và chỉ lấy trung bình
+    các giá trị loss hợp lệ (nơi có ground truth mask), ngăn ngừa mất ổn định.
     """
-    # --- Focal Loss Calculation ---
-    # This is the correct implementation for multi-label segmentation
-    bce_loss = F.binary_cross_entropy_with_logits(pred, target, reduction='none')
-    pred_probs_for_focal = torch.sigmoid(pred)
-    p_t = pred_probs_for_focal * target + (1 - pred_probs_for_focal) * (1 - target)
-    focal_modulator = (1 - p_t)**gamma
-    
-    # Apply alpha weighting
-    alpha_t = alpha * target + (1 - alpha) * (1 - target)
-    focal_loss = (alpha_t * focal_modulator * bce_loss).mean()
+    # 1. Loss theo từng pixel (BCE)
+    bce_loss = F.binary_cross_entropy_with_logits(pred, target)
 
-    # --- Dice Loss Calculation ---
+    # 2. Loss theo hình dạng (Dice - Phiên bản ổn định)
     pred_probs = torch.sigmoid(pred)
-    target_sum = target.sum(dim=[2, 3])
-    has_mask = target_sum > 0
+    
     intersection = (pred_probs * target).sum(dim=(2, 3))
     union = pred_probs.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
-    dice_all = (2. * intersection + 1e-5) / (union + 1e-5)
-    if has_mask.any():
-        dice_loss = 1 - dice_all[has_mask].mean()
-    else:
-        # Nếu không có mask nào trong batch này, Dice loss là 0
-        dice_loss = 0.0
+    
+    # Dice score cho từng mẫu trong batch và từng class
+    dice_score = (2. * intersection + 1e-6) / (union + 1e-6)
+    dice_loss_per_sample = 1. - dice_score
 
-    return focal_loss + dice_loss
+    # Chỉ tính loss trên các mẫu có mask (target.sum > 0)
+    mask_has_gt = (target.sum(dim=(2, 3)) > 0)
+
+    if mask_has_gt.sum() > 0:
+        # Lấy trung bình của các giá trị loss HỢP LỆ
+        dice_loss = dice_loss_per_sample[mask_has_gt].mean()
+    else:
+        dice_loss = torch.tensor(0.0, device=pred.device)
+
+    # Trả về 2 thành phần loss riêng biệt
+    return bce_loss, dice_loss

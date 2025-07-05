@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg') # Sử dụng backend không cần GUI
 import logging
 
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler, autocas
+t
 from torch.optim.lr_scheduler import OneCycleLR
 
 from MedClip_Adapter import CLIP_Swin_Implanted
@@ -49,25 +50,25 @@ def main():
     PRETRAINED_MEDCLIP_CKPT_PATH = r"D:\Thesis\MedCLIP-Adapter\checkpoints\pytorch_model.bin"
     PROMPT_CACHE_PATH = r"prompt\prompt_cache.pt"
     OUTPUT_CHECKPOINT_DIR = "checkpoints_final"
-    VIS_OUTPUT_DIR = "training_visualizations" # Thư mục lưu heatmap
+    VIS_OUTPUT_DIR = "training_visualizations" #  Thư mục lưu heatmap
 
     # --- Cấu hình Dataset ---
     # Sử dụng metadata.csv thay vì quét thư mục
     METADATA_PATH = "metadata.csv"
     DATASET_SOURCE_FILTER = "BTXRD_cleaned" # Chọn 'large_dataset', 'BTXRD_dataset', hoặc None để dùng tất cả
 
-    MAX_LEARNING_RATE_ADAPTERS = 5e-4 # Tăng LR cho các thành phần mới
-    MAX_LEARNING_RATE_BACKBONE = 2e-5
+    MAX_LEARNING_RATE_ADAPTERS = 1e-4 # Tăng LR cho các thành phần mới
+    MAX_LEARNING_RATE_BACKBONE = 1e-5
     WEIGHT_DECAY = 0.01
     BATCH_SIZE = 8
-    EPOCHS = 30
+    EPOCHS = 50
     NUM_WORKERS = 4
     EXCLUDED_CLASS_FOR_ZERO_SHOT = "osteosarcoma"
 
     LOSS_WEIGHT_L1 = 0.25
     LOSS_WEIGHT_L2 = 0.5
     LOSS_WEIGHT_L3 = 1.0
-    SEG_LOSS_WEIGHT = 2.0 # Tăng mạnh trọng số để ưu tiên segmentation
+    SEG_LOSS_WEIGHT = 1.0 # Tăng mạnh trọng số để ưu tiên segmentation
     GRAD_CLIP_VALUE = 1.0 # Thêm giá trị cho gradient clipping
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -264,42 +265,46 @@ def main():
 
             optimizer.zero_grad(set_to_none=True)
 
-            with autocast():
-                image_features, logit_scale, seg_intermediates = model(image)
-
-                logits1 = image_features @ text_embeddings_l1.T * logit_scale.exp()
-                logits2 = image_features @ text_embeddings_l2.T * logit_scale.exp()
-                logits3 = image_features @ text_embeddings_l3.T * logit_scale.exp()
-
-                loss1 = F.binary_cross_entropy_with_logits(logits1, label1)
-                loss2 = F.binary_cross_entropy_with_logits(logits2, label2)
-                loss3 = F.binary_cross_entropy_with_logits(logits3, label3)
+             with autocast():
+                # ... (phần tính logits không đổi)
                 clf_loss = (LOSS_WEIGHT_L1 * loss1) + (LOSS_WEIGHT_L2 * loss2) + (LOSS_WEIGHT_L3 * loss3)
+                
                 # --- Segmentation Loss Calculation ---
-                # Lấy chỉ số của các lớp bệnh có trong batch này
                 active_class_idxs = (label3.sum(dim=0) > 0).nonzero(as_tuple=True)[0]
-
-                seg_loss = 0.0
-                # Chỉ tính loss segmentation nếu có lớp bệnh trong batch, để tránh lỗi tensor rỗng
+                
+                seg_loss_val = torch.tensor(0.0, device=device)
+                
                 if active_class_idxs.numel() > 0:
+                    total_bce_seg, total_dice_seg = 0.0, 0.0
+                    num_stages = len(text_projectors_l3)
+                    
                     for i, projector in enumerate(text_projectors_l3):
+                        # ... (phần code tính heatmap_pred giữ nguyên)
                         patch_tokens = seg_intermediates[i]
-                        text_embed_proj = projector(text_embeddings_l3[active_class_idxs])
-
-                        patch_tokens = patch_tokens / patch_tokens.norm(dim=-1, keepdim=True)
-                        text_embed_proj = text_embed_proj / text_embed_proj.norm(dim=-1, keepdim=True)
-
-                        anomaly_scores = patch_tokens @ text_embed_proj.T
-                        B, N, C = anomaly_scores.shape
-                        H_feat = W_feat = int(N ** 0.5)
-                        anomaly_scores = anomaly_scores.permute(0, 2, 1).reshape(B, C, H_feat, W_feat)
+                        # ...
                         heatmap_pred = F.interpolate(anomaly_scores, size=mask_gt.shape[-2:], mode="bilinear", align_corners=False)
+                        
                         masked_heatmap_pred = heatmap_pred * valid_region_mask.unsqueeze(1)
                         masked_mask_gt = mask_gt[:, active_class_idxs] * valid_region_mask.unsqueeze(1)
-                        seg_loss += multi_channel_focal_dice_loss(masked_heatmap_pred, masked_mask_gt)
+                        
+                        # <<< THAY ĐỔI CÁCH GỌI HÀM LOSS >>>
+                        bce_seg, dice_seg = multi_channel_focal_dice_loss(masked_heatmap_pred, masked_mask_gt)
+                        
+                        total_bce_seg += bce_seg
+                        total_dice_seg += dice_seg
+                    
+                    # Lấy trung bình loss từ các stage
+                    avg_bce_seg = total_bce_seg / num_stages
+                    avg_dice_seg = total_dice_seg / num_stages
 
-                total_loss = clf_loss + SEG_LOSS_WEIGHT * seg_loss
+                    # Kết hợp chúng lại (bạn có thể thêm trọng số cho dice nếu muốn, ví dụ: 0.5 * avg_dice_seg)
+                    seg_loss_val = avg_bce_seg + avg_dice_seg
 
+                total_loss = clf_loss + SEG_LOSS_WEIGHT * seg_loss_val
+             # Thêm kiểm tra loss âm để đảm bảo an toàn
+            if torch.isnan(total_loss) or (total_loss.is_finite() and total_loss.item() < 0):
+                logging.warning(f"Invalid loss detected (NaN or Negative: {total_loss.item()}). Skipping step.")
+                continue
             if torch.isnan(total_loss):
                 print("⚠️ NaN loss encountered! Skipping step.")
                 continue
