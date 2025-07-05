@@ -13,7 +13,7 @@ import numpy as np # Thêm import numpy
 # Thêm import cho Albumentations
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-
+import cv2
 # --- Các hằng số định nghĩa lớp không thay đổi ---
 # Đảm bảo các danh sách này khớp với cấu hình trong file train.py
 LEVEL1_NAMES = ['bone_tumor', 'degenerative', 'misc', 'trauma']
@@ -77,19 +77,16 @@ class MedicalImageDatasetBase(Dataset):
             self.df = df_all.copy()
         
         print(f"Đã tải {len(self.df)} bản ghi từ metadata.")
-
         self.resize = resize
         self.is_train = is_train
 
-        # --- Pipeline Augmentation không đổi, nó sẽ hoạt động trên ảnh đã được làm sạch ---
+        # Pipeline Augmentation đơn giản và an toàn
         if self.is_train:
-            print("INFO: Chế độ Train - Bật Augmentation với Albumentations.")
+            print("INFO: Chế độ Train - Bật Augmentation (phiên bản đơn giản hóa).")
             self.transform = A.Compose([
                 A.HorizontalFlip(p=0.5),
-                A.ElasticTransform(p=0.3, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
-                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.8, border_mode=0, value=0),
-                A.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.1, hue=0.05, p=0.8),
-                A.GaussNoise(p=0.2),
+                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.7, border_mode=0, value=0),
+                A.ColorJitter(brightness=0.2, contrast=0.2, p=0.5),
                 A.LongestMaxSize(max_size=self.resize),
                 A.PadIfNeeded(min_height=self.resize, min_width=self.resize, border_mode=0, value=0),
                 ToTensorV2(),
@@ -101,7 +98,6 @@ class MedicalImageDatasetBase(Dataset):
                 A.PadIfNeeded(min_height=self.resize, min_width=self.resize, border_mode=0, value=0),
                 ToTensorV2(),
             ])
-
         self.image_paths = []
         self.image_info_map = {}
 
@@ -113,28 +109,37 @@ class MedicalImageDatasetBase(Dataset):
     def __len__(self):
         return len(self.image_paths)
     
-    def _crop_to_content(self, pil_image):
-        """Sử dụng OpenCV để tìm và crop theo vùng nội dung (phim X-quang), loại bỏ nền trắng/đen."""
-        open_cv_image = np.array(pil_image.convert('L'))
-        # Ngưỡng hóa để tìm vùng không phải là nền đen tuyền
-        _, thresh = cv2.threshold(open_cv_image, 1, 255, cv2.THRESH_BINARY)
+    def _find_xray_film_bbox(self, pil_image):
+        """
+        Logic crop mạnh mẽ hơn: Đảo ngược ảnh để tìm phim X-quang.
+        """
+        gray_image = np.array(pil_image.convert('L'))
+        
+        # Đảo ngược ảnh: nền trắng -> đen, phim đen -> trắng
+        inverted_image = cv2.bitwise_not(gray_image)
+        
+        # Ngưỡng hóa để làm nổi bật phim (giờ đã là màu trắng)
+        _, thresh = cv2.threshold(inverted_image, 50, 255, cv2.THRESH_BINARY)
+        
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if not contours:
-            return pil_image # Trả về ảnh gốc nếu không tìm thấy gì
+            return None
 
-        # Tìm bounding box của tất cả các contour
-        x_min, y_min, x_max, y_max = float('inf'), float('inf'), 0, 0
-        for cnt in contours:
-            x, y, w, h = cv2.boundingRect(cnt)
-            x_min = min(x_min, x)
-            y_min = min(y_min, y)
-            x_max = max(x_max, x + w)
-            y_max = max(y_max, y + h)
-
-        # Crop ảnh PIL gốc theo bounding box đã tìm được
-        cropped_pil = pil_image.crop((x_min, y_min, x_max, y_max))
-        return cropped_pil
+        # Tìm contour lớn nhất, đây chính là phim X-quang
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Lấy bounding box của nó
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        
+        # Thêm một chút padding để không bị cắt sát viền (tùy chọn)
+        padding = 5
+        x = max(0, x - padding)
+        y = max(0, y - padding)
+        w = w + (padding * 2)
+        h = h + (padding * 2)
+        
+        return (x, y, x + w, y + h)
 
     def __getitem__(self, idx):
         img_path = self.image_paths[idx]
@@ -142,44 +147,50 @@ class MedicalImageDatasetBase(Dataset):
 
         try:
             image_pil = Image.open(img_path).convert("RGB")
-        except (FileNotFoundError, IOError) as e:
-            print(f"Lỗi: Không thể tải file ảnh tại {img_path}. Lỗi: {e}")
+        except (FileNotFoundError, IOError):
             return None
 
-        # 1. TIỀN XỬ LÝ: Crop ảnh để chỉ giữ lại nội dung X-quang
-        image_pil_cleaned = self._crop_to_content(image_pil)
-        image_np = np.array(image_pil_cleaned)
+        # 1. TÍNH TOÁN BBOX TỪ ẢNH GỐC BẰNG LOGIC MỚI
+        bbox = self._find_xray_film_bbox(image_pil)
+        if bbox is None:
+            print(f"Cảnh báo: Không tìm thấy phim X-quang trong ảnh {img_path}. Bỏ qua.")
+            return None
 
-        # --- Lấy mask tương ứng ---
+        # 2. CROP ẢNH VÀ MASK BẰNG CÙNG MỘT BBOX
+        image_pil_cropped = image_pil.crop(bbox)
+        
         record = info_list[0]
         mask_path = record.get('mask_path')
-        mask_np = None
+        mask_pil_cropped = None
         if mask_path and pd.notna(mask_path) and os.path.exists(mask_path):
             try:
                 mask_pil = Image.open(mask_path).convert("L")
-                # Crop mask tương tự như đã crop ảnh
-                mask_pil_cropped = self._crop_to_content(mask_pil)
-                mask_np = np.array(mask_pil_cropped)
+                mask_pil_cropped = mask_pil.crop(bbox)
             except Exception:
-                mask_np = np.zeros(image_np.shape[:2], dtype=np.uint8)
+                mask_pil_cropped = None
         
-        if mask_np is None:
-            mask_np = np.zeros(image_np.shape[:2], dtype=np.uint8)
-        
-        # 2. AUGMENTATION: Áp dụng lên ảnh và mask đã được làm sạch
+        if mask_pil_cropped is None:
+            mask_pil_cropped = Image.new('L', image_pil_cropped.size, 0)
+
+        # 3. CHUYỂN SANG NUMPY ĐỂ ĐƯA VÀO ALBUMENTATIONS
+        image_np = np.array(image_pil_cropped)
+        mask_np = np.array(mask_pil_cropped)
+
+        # 4. ÁP DỤNG AUGMENTATION
         augmented = self.transform(image=image_np, mask=mask_np)
         image = augmented['image'].float() / 255.0
         mask_transformed = augmented['mask'].float().unsqueeze(0)
 
-        # 3. SOFT MASKING: Ngăn model học cạnh của vùng đệm mới
+        # 5. BỎ SOFT-MASKING (Không cần thiết nữa vì ảnh đầu vào đã rất sạch)
+        # Chỉ cần tạo valid_region_mask để dùng trong vòng lặp huấn luyện
         valid_region_mask = (image[0, :, :] > 0).float()
-        soft_valid_mask = TF.gaussian_blur(valid_region_mask.unsqueeze(0), kernel_size=21, sigma=5).squeeze(0)
-        image = image * soft_valid_mask.unsqueeze(0)
-
-        # --- Khởi tạo label và mask tensor (không đổi) ---
+        
+        # ... Phần còn lại của hàm để tạo label và mask_tensor không đổi
         H, W = image.shape[1], image.shape[2]
         mask_tensor = torch.zeros((len(LEVEL3_NAMES), H, W), dtype=torch.float32)
-        # ... (phần còn lại để điền label và mask_tensor giữ nguyên)
+        label_level1 = torch.zeros(len(LEVEL1_NAMES), dtype=torch.float32)
+        label_level2 = torch.zeros(len(LEVEL2_NAMES), dtype=torch.float32)
+        label_level3 = torch.zeros(len(LEVEL3_NAMES), dtype=torch.float32)
 
         for rec in info_list:
             class_name = rec.get('class_name')
@@ -194,7 +205,7 @@ class MedicalImageDatasetBase(Dataset):
                 label_level1[LEVEL1_MAP[l1_name]] = 1.0
             if l2_name and l2_name in LEVEL2_MAP:
                 label_level2[LEVEL2_MAP[l2_name]] = 1.0
-
+        
         return image, mask_tensor, label_level1, label_level2, label_level3, valid_region_mask
 
 

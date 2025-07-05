@@ -87,6 +87,13 @@ def multi_channel_focal_dice_loss(pred, target):
     
     # Dice score cho từng mẫu trong batch và từng class
     dice_score = (2. * intersection + 1e-6) / (union + 1e-6)
+
+    # <<< THAY ĐỔI DUY NHẤT VÀ QUAN TRỌNG NHẤT Ở ĐÂY >>>
+    # Kẹp giá trị dice_score để đảm bảo nó luôn nằm trong khoảng [0, 1]
+    # Điều này ngăn chặn lỗi làm tròn gây ra score > 1.
+    dice_score = torch.clamp(dice_score, 0.0, 1.0)
+    
+    # Bây giờ, dice_loss chắc chắn sẽ không bao giờ âm
     dice_loss_per_sample = 1. - dice_score
 
     # Chỉ tính loss trên các mẫu có mask (target.sum > 0)
