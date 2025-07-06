@@ -1,0 +1,184 @@
+{
+    "giant_cell_tumor": {
+        "prompts": [
+            "An X-ray of a giant cell tumor, a benign but locally aggressive bone tumor.",
+            "A lytic, eccentric lesion in the epiphysis of a long bone, extending to the articular surface.",
+            "Radiograph showing a geographic bone lesion with a well-defined, non-sclerotic border.",
+            "A medical scan presenting a 'soap bubble' appearance, characteristic of a giant cell tumor."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "multiple_osteochondromas": {
+        "prompts": [
+            "An X-ray showing multiple osteochondromas, a condition known as hereditary multiple exostoses.",
+            "Multiple bony projections with cartilage caps, typically seen in a young patient.",
+            "Radiograph showing multiple exostoses pointing away from the nearest joint."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "osteochondroma": {
+        "prompts": [
+            "An X-ray of an osteochondroma, a common benign bone tumor.",
+            "A cartilage-capped bony projection on the external surface of a bone, pointing away from the joint.",
+            "This radiograph shows a pedunculated or sessile lesion with cortical and medullary continuity with the host bone."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "osteofibroma": {
+        "prompts": [
+            "An X-ray of an osteofibrous dysplasia, a benign fibro-osseous lesion.",
+            "A well-circumscribed, intracortical, lytic lesion, typically in the tibia.",
+            "Radiograph showing a hazy, ground-glass appearance within the bone lesion."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "simple_bone_cyst": {
+        "prompts": [
+            "An X-ray of a simple or unicameral bone cyst.",
+            "A centrally located, well-defined lytic lesion in the metaphysis of a long bone.",
+            "This scan shows a fluid-filled cavity with a thin sclerotic rim and may show a 'fallen fragment' sign after a fracture."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "synovial_osteochondroma": {
+        "prompts": [
+            "An X-ray of synovial osteochondromatosis.",
+            "Multiple small, calcified or ossified loose bodies within a joint or bursa.",
+            "Radiograph showing multiple intra-articular nodules of similar size, a condition of the synovial membrane."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "osteosarcoma": {
+        "prompts": [
+            "An X-ray of osteosarcoma, a highly malignant bone tumor.",
+            "An aggressive, poorly defined lesion in the metaphysis, often around the knee.",
+            "Radiograph showing a 'sunburst' or 'sun-ray' periosteal reaction and bone destruction.",
+            "This scan presents a finding of Codman's triangle and production of tumor osteoid."
+        ],
+        "level1": "bone_tumor",
+        "level2": "malignant"
+    },
+    "other_bt": {
+        "prompts": [
+            "An X-ray of a benign bone tumor not otherwise specified.",
+            "A non-aggressive bone lesion with well-defined borders.",
+            "A focal benign process within the bone."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "other_mt": {
+        "prompts": [
+            "An X-ray of a malignant bone tumor not otherwise specified.",
+            "An aggressive bone lesion with ill-defined borders and cortical destruction.",
+            "A focal malignant process within the bone, potentially a metastasis or another primary sarcoma."
+        ],
+        "level1": "bone_tumor",
+        "level2": "malignant"
+    },
+    "disc_space_narrowing": {
+        "prompts": [
+            "An X-ray showing disc space narrowing, a sign of degenerative disc disease.",
+            "Decreased height of the intervertebral disc space in the spine.",
+            "This radiograph shows that the space between two vertebrae is reduced."
+        ],
+        "level1": "degenerative",
+        "level2": "none"
+    },
+    "foraminal_stenosis": {
+        "prompts": [
+            "An X-ray showing foraminal stenosis, a type of degenerative condition.",
+            "Narrowing of the neural foramen, the passageway where spinal nerves exit.",
+            "Radiograph showing encroachment on the nerve root canal due to bone spurs or disc herniation."
+        ],
+        "level1": "degenerative",
+        "level2": "none"
+    },
+    "osteophytes": {
+        "prompts": [
+            "An X-ray showing osteophytes, also known as bone spurs.",
+            "Bony projections that form along joint margins, a sign of joint degeneration.",
+            "Li-pping of the vertebral endplates on a spinal radiograph."
+        ],
+        "level1": "degenerative",
+        "level2": "none"
+    },
+    "spondylolysthesis": {
+        "prompts": [
+            "An X-ray showing spondylolisthesis, a condition where one vertebra slips forward over the one below it.",
+            "Anterior displacement of a vertebra, often seen on a lateral view of the spine.",
+            "This scan shows a misalignment of the spinal column, a type of spinal instability."
+        ],
+        "level1": "degenerative",
+        "level2": "none"
+    },
+    "vertebral_collapse": {
+        "prompts": [
+            "An X-ray of a vertebral collapse or compression fracture.",
+            "A loss of height in the vertebral body, often resulting in a wedge shape.",
+            "This scan shows a compression deformity of a vertebra, a sign of trauma or osteoporosis."
+        ],
+        "level1": "trauma",
+        "level2": "none"
+    },
+    "broken": {
+        "prompts": [
+            "An X-ray of a bone fracture, a type of trauma.",
+            "A clear fracture line showing a discontinuity in the bone cortex.",
+            "This medical scan presents a finding of displaced or angulated bone fragments."
+        ],
+        "level1": "trauma",
+        "level2": "none"
+    },
+    "surgical_implant": {
+        "prompts": [
+            "An X-ray showing a surgical implant.",
+            "Presence of a high-density metallic device, such as screws, plates, or rods, used for fixation.",
+            "This radiograph shows a joint replacement or arthroplasty."
+        ],
+        "level1": "misc",
+        "level2": "none"
+    },
+    "other_lesions": {
+        "prompts": [
+            "An X-ray showing a miscellaneous or other type of lesion.",
+            "An unspecified focal abnormality in the bone.",
+            "A radiographic finding that does not fit into a clear category."
+        ],
+        "level1": "misc",
+        "level2": "none"
+    },
+    "normal": {
+        "prompts": [
+            "A normal X-ray with no significant findings.",
+            "This radiograph shows a healthy bone and joint structure.",
+            "No evidence of fracture, dislocation, degenerative changes, or tumor."
+        ],
+        "level1": "misc",
+        "level2": "none"
+    },
+    "benign": {
+        "prompts": ["A well-defined lesion with a sharp, clear border and a narrow zone of transition.", "A non-aggressive bone lesion, often with a sclerotic (white) rim.", "No signs of cortical destruction or periosteal reaction."]
+    },
+    "malignant": {
+        "prompts": ["An ill-defined, aggressive lesion with a wide zone of transition.", "A moth-eaten or permeative pattern of bone destruction.", "Signs of aggressive periosteal reaction and a soft tissue mass."]
+    },
+    "bone_tumor": {
+        "prompts": ["An abnormal growth or mass within the bone.", "A focal lesion altering the normal bone architecture.", "An X-ray finding suspicious for a bone neoplasm."]
+    },
+    "degenerative": {
+        "prompts": ["Signs of joint wear and tear, such as joint space narrowing and osteophytes.", "Age-related changes affecting the joints or spine.", "Sclerosis and cyst formation in the subchondral bone."]
+    },
+    "trauma": {
+        "prompts": ["Evidence of acute injury, such as a fracture or dislocation.", "A break or crack in the bone caused by force.", "Post-traumatic changes in bone alignment."]
+    },
+    "misc": {
+        "prompts": ["A miscellaneous finding, not classified as tumor, trauma, or degeneration.", "A normal study or a finding like a surgical implant.", "An incidental or non-specific radiographic finding."]
+    }
+}
