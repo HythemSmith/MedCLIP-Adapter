@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 # --- THAY ĐỔI CÁC ĐƯỜNG DẪN NÀY CHO PHÙ HỢP ---
 # Đường dẫn đến thư mục dataset gốc của bạn
-DATASET_ROOT_PATH = r"C:\Users\vanlo\Desktop\dataset"
+DATASET_ROOT_PATH = r"E:\MedCLIP-Adapter\MedCLIP-Adapter\dataset"
 # Tên file JSON output sẽ được tạo ra
 OUTPUT_JSON_PATH = "prompt_bank.json" 
 
@@ -31,7 +31,7 @@ def discover_hierarchy(root_dir):
     Quét thư mục dataset để tự động tìm cấu trúc phân cấp (L1, L2, L3)
     và danh sách các lớp ở mỗi cấp độ.
     """
-    print("🔄 Discovering hierarchy from directory structure...")
+    print("Discovering hierarchy from directory structure...")
     
     # {l3_name: {'level1': l1_name, 'level2': l2_name}}
     hierarchy_info = {} 
@@ -75,7 +75,7 @@ def discover_hierarchy(root_dir):
         if l3 and l3 not in hierarchy_info:
             hierarchy_info[l3] = {'level1': l1, 'level2': l2}
             
-    print("✔ Hierarchy discovered.")
+        print("Hierarchy discovered.")
     # Trả về thông tin phân cấp và danh sách các lớp đã được sắp xếp
     return hierarchy_info, sorted(list(level1_classes)), sorted(list(level2_classes)), sorted(list(level3_classes))
 
@@ -84,7 +84,7 @@ def generate_all_prompts(hierarchy_info, l1_names, l2_names, l3_names):
     """
     Tạo ra một dictionary chứa tất cả các câu prompt cho tất cả các lớp ở cả 3 level.
     """
-    print("✍️ Generating prompt strings for all levels...")
+    print("Generating prompt strings for all levels...")
     all_prompts = defaultdict(dict)
 
     # --- A. TẠO PROMPT CHO LEVEL 3 (CHI TIẾT NHẤT) ---
@@ -116,6 +116,7 @@ def generate_all_prompts(hierarchy_info, l1_names, l2_names, l3_names):
         # Lưu lại thông tin phân cấp để dễ dàng tra cứu sau này
         all_prompts[l3_name]['level1'] = l1_name
         all_prompts[l3_name]['level2'] = l2_name
+        all_prompts[l3_name]['position'] = []
 
     # --- B. TẠO PROMPT CHO LEVEL 2 (TỔNG QUÁT HƠN) ---
     for l2_name in l2_names:
@@ -125,6 +126,9 @@ def generate_all_prompts(hierarchy_info, l1_names, l2_names, l3_names):
             f"This radiograph shows a {l2_fmt} lesion.",
             f"A medical scan indicating a {l2_fmt} process."
         ]
+        all_prompts[l2_name]['level1'] = None  # Level 2 doesn't have a direct L1 parent in this context
+        all_prompts[l2_name]['level2'] = l2_name
+        all_prompts[l2_name]['position'] = []
         
     # --- C. TẠO PROMPT CHO LEVEL 1 (TỔNG QUÁT NHẤT) ---
     for l1_name in l1_names:
@@ -134,8 +138,11 @@ def generate_all_prompts(hierarchy_info, l1_names, l2_names, l3_names):
             f"This medical scan presents a finding related to {l1_fmt}.",
             f"A radiograph with signs of {l1_fmt}."
         ]
+        all_prompts[l1_name]['level1'] = l1_name
+        all_prompts[l1_name]['level2'] = None  # Level 1 doesn't have a direct L2 parent
+        all_prompts[l1_name]['position'] = []
 
-    print("✔ All prompts generated.")
+    print("All prompts generated.")
     return all_prompts
 
 
@@ -154,25 +161,26 @@ def main():
     print(f"Total Level 1 classes found: {len(level1_names)} -> {level1_names}")
     print(f"Total Level 2 classes found: {len(level2_names)} -> {level2_names}")
     print(f"Total Level 3 classes found: {len(level3_names)}")
+    print(f"Discovered hierarchy: {hierarchy_info}")
     
     # 2. Dựa trên thông tin đã khám phá, tạo ra dictionary chứa các câu prompt
     prompts_to_save = generate_all_prompts(hierarchy_info, level1_names, level2_names, level3_names)
     
     # 3. Lưu dictionary này vào một file JSON có định dạng đẹp, dễ đọc
-    print(f"\n💾 Saving generated prompts to: {OUTPUT_JSON_PATH}...")
+    print(f"Saving generated prompts to: {OUTPUT_JSON_PATH}...")
     try:
         with open(OUTPUT_JSON_PATH, 'w', encoding='utf-8') as f:
             # indent=4 giúp file JSON được định dạng với thụt lề 4 dấu cách, rất dễ đọc
             json.dump(prompts_to_save, f, ensure_ascii=False, indent=4)
             
-        print(f"✔ Prompts successfully saved to '{OUTPUT_JSON_PATH}'.")
+        print(f"Prompts successfully saved to '{OUTPUT_JSON_PATH}'.")
         print(f"Total unique classes with prompts generated: {len(prompts_to_save)}")
         print("\nNext steps:")
         print("1. Review the generated 'prompts.json' file.")
         print("2. Run 'prompt_encoder.py' to convert these text prompts into embeddings and create 'prompt_cache.pt'.")
 
     except Exception as e:
-        print(f"\n❌ Error saving JSON file: {e}")
+        print(f"Error saving JSON file: {e}")
 
 
 if __name__ == "__main__":

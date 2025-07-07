@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
+venv/
 # Checkpoints and model weights
 # Thư mục chứa checkpoint gốc của MedCLIP
 checkpoints/
@@ -32,3 +32,6 @@ checkpoints_BTXRD_Cleaned/
 prompt/prompt_cache.pt
 *.log
 training_visualizations/
+
+dataset/
+dataset_nostructure/

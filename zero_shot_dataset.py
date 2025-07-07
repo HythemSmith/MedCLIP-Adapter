@@ -24,10 +24,41 @@ LEVEL3_NAMES = [
     'disc_space_narrowing', 'foraminal_stenosis', 'osteophytes', 'normal', 'other_lesions',
     'spondylolysthesis', 'surgical_implant', 'vertebral_collapse', 'broken'
 ]
+POSITION_NAMES = [
+    'hand', 'ulna', 'radius', 'humerus', 'foot', 'tibia', 'fibula', 'femur', 'pelvis'
+]
 LEVEL1_MAP = {name: i for i, name in enumerate(LEVEL1_NAMES)}
 LEVEL2_MAP = {name: i for i, name in enumerate(LEVEL2_NAMES)}
 LEVEL3_MAP = {name: i for i, name in enumerate(LEVEL3_NAMES)}
-
+# Bản đồ vị trí tương ứng với chỉ số trong tensor
+POSITION_MAP = {name: i for i, name in enumerate(POSITION_NAMES)}
+def get_image_position(image_name, csv_path=r'E:\MedCLIP-Adapter\MedCLIP-Adapter\prompt\position.csv'):
+    """
+    Load position.csv and return the position for a given image name.
+    
+    Args:
+        image_name (str): Name of the image (e.g., 'IMG000001.jpeg').
+        csv_path (str): Path to the position.csv file.
+        
+    Returns:
+        str or None: The position value(s) associated with the image_name, or None if not found.
+    """
+    try:
+        # Load the position.csv file
+        df = pd.read_csv(csv_path)
+        
+        # Create a dictionary mapping image names to positions
+        position_map = df.set_index('name')['position'].to_dict()
+        
+        # Return the position for the given image name, or None if not found
+        return position_map.get(image_name)
+    
+    except FileNotFoundError:
+        print(f"Error: Could not find file at '{csv_path}'.")
+        return None
+    except Exception as e:
+        print(f"Error: Failed to process position.csv. {str(e)}")
+        return None
 # --- Lớp tiện ích để resize và pad ảnh, đồng thời tạo valid_region_mask ---
 class ResizePadToSquare:
     """
@@ -68,6 +99,7 @@ class MedicalImageDatasetBase(Dataset):
         try:
             df_all = pd.read_csv(metadata_path)
         except FileNotFoundError:
+
             print(f"Lỗi: Không tìm thấy file metadata tại '{metadata_path}'.")
             raise
 
@@ -144,7 +176,8 @@ class MedicalImageDatasetBase(Dataset):
     def __getitem__(self, idx):
         img_path = self.image_paths[idx]
         info_list = self.image_info_map[img_path]
-
+        img_name = os.path.basename(img_path)
+        pos_names = get_image_position(img_name)
         try:
             image_pil = Image.open(img_path).convert("RGB")
         except (FileNotFoundError, IOError):
@@ -191,11 +224,14 @@ class MedicalImageDatasetBase(Dataset):
         label_level1 = torch.zeros(len(LEVEL1_NAMES), dtype=torch.float32)
         label_level2 = torch.zeros(len(LEVEL2_NAMES), dtype=torch.float32)
         label_level3 = torch.zeros(len(LEVEL3_NAMES), dtype=torch.float32)
+        label_pos = torch.zeros(len(POSITION_NAMES), dtype=torch.float32)
 
         for rec in info_list:
             class_name = rec.get('class_name')
             l1_name = rec.get('level1')
             l2_name = rec.get('level2')
+            pos_names = rec.get('position')
+
             if class_name and class_name in LEVEL3_MAP:
                 l3_idx = LEVEL3_MAP[class_name]
                 label_level3[l3_idx] = 1.0
@@ -205,8 +241,11 @@ class MedicalImageDatasetBase(Dataset):
                 label_level1[LEVEL1_MAP[l1_name]] = 1.0
             if l2_name and l2_name in LEVEL2_MAP:
                 label_level2[LEVEL2_MAP[l2_name]] = 1.0
-        
-        return image, mask_tensor, label_level1, label_level2, label_level3, valid_region_mask
+            for pos_name in pos_names.split(','):
+                pos_name = pos_name.strip().lower()
+                if pos_name in POSITION_MAP:
+                    label_pos[POSITION_MAP[pos_name]] = 1.0
+        return image, mask_tensor, label_level1, label_level2, label_level3, valid_region_mask, label_pos
 
 
 # --- Lớp MedicalTrainDataset kế thừa và BẬT augmentation ---
