@@ -32,17 +32,8 @@ LEVEL2_MAP = {name: i for i, name in enumerate(LEVEL2_NAMES)}
 LEVEL3_MAP = {name: i for i, name in enumerate(LEVEL3_NAMES)}
 # Bản đồ vị trí tương ứng với chỉ số trong tensor
 POSITION_MAP = {name: i for i, name in enumerate(POSITION_NAMES)}
-def get_image_position(image_name, csv_path=r'E:\MedCLIP-Adapter\MedCLIP-Adapter\prompt\position.csv'):
-    """
-    Load position.csv and return the position for a given image name.
-    
-    Args:
-        image_name (str): Name of the image (e.g., 'IMG000001.jpeg').
-        csv_path (str): Path to the position.csv file.
-        
-    Returns:
-        str or None: The position value(s) associated with the image_name, or None if not found.
-    """
+
+def get_image_position(image_name, csv_path=r'prompt\position.csv'):
     try:
         # Load the position.csv file
         df = pd.read_csv(csv_path)
@@ -59,7 +50,7 @@ def get_image_position(image_name, csv_path=r'E:\MedCLIP-Adapter\MedCLIP-Adapter
     except Exception as e:
         print(f"Error: Failed to process position.csv. {str(e)}")
         return None
-# --- Lớp tiện ích để resize và pad ảnh, đồng thời tạo valid_region_mask ---
+
 class ResizePadToSquare:
     """
     Resize ảnh về kích thước mong muốn mà vẫn giữ tỷ lệ, sau đó thêm padding.
@@ -231,7 +222,7 @@ class MedicalImageDatasetBase(Dataset):
             l1_name = rec.get('level1')
             l2_name = rec.get('level2')
             pos_names = rec.get('position')
-
+            print(f"Processing position: {pos_names}")
             if class_name and class_name in LEVEL3_MAP:
                 l3_idx = LEVEL3_MAP[class_name]
                 label_level3[l3_idx] = 1.0
@@ -242,6 +233,7 @@ class MedicalImageDatasetBase(Dataset):
             if l2_name and l2_name in LEVEL2_MAP:
                 label_level2[LEVEL2_MAP[l2_name]] = 1.0
             for pos_name in pos_names.split(','):
+                
                 pos_name = pos_name.strip().lower()
                 if pos_name in POSITION_MAP:
                     label_pos[POSITION_MAP[pos_name]] = 1.0

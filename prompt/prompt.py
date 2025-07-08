@@ -2,7 +2,7 @@ import pandas as pd
 import json
 
 # Load sheet 1
-df = pd.read_excel(r"E:\MedCLIP-Adapter\MedCLIP-Adapter\prompt\dataset.xlsx", sheet_name=0)
+df = pd.read_excel(r"prompt\dataset.xlsx", sheet_name=0)
 
 # Xác định cột disease thật sự
 disease_cols = [

@@ -23,4 +23,4 @@ def print_tree(path, prefix=""):
 
 # Sử dụng
 if __name__ == "__main__":
-    print_tree(r"C:\Users\vanlo\Desktop\dataset")
+    print_tree(r"C:\Users\vanlo\Desktop\BTXRD_cleaned")

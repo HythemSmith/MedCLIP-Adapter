@@ -13,15 +13,15 @@
         "prompts": [
             "An X-ray showing multiple osteochondromas, a condition known as hereditary multiple exostoses.",
             "Multiple bony projections with cartilage caps, typically seen in a young patient.",
-            "Radiograph showing multiple exostoses pointing away from the nearest joint."
+            "Radiograph showing multiple exostoses pointing away from the nearest joint, causing bone deformity."
         ],
         "level1": "bone_tumor",
         "level2": "benign"
     },
     "osteochondroma": {
         "prompts": [
-            "An X-ray of an osteochondroma, a common benign bone tumor.",
-            "A cartilage-capped bony projection on the external surface of a bone, pointing away from the joint.",
+            "An X-ray of an osteochondroma, the most common benign bone tumor.",
+            "A cartilage-capped bony projection on the external surface of a bone.",
             "This radiograph shows a pedunculated or sessile lesion with cortical and medullary continuity with the host bone."
         ],
         "level1": "bone_tumor",
@@ -32,6 +32,15 @@
             "An X-ray of an osteofibrous dysplasia, a benign fibro-osseous lesion.",
             "A well-circumscribed, intracortical, lytic lesion, typically in the tibia.",
             "Radiograph showing a hazy, ground-glass appearance within the bone lesion."
+        ],
+        "level1": "bone_tumor",
+        "level2": "benign"
+    },
+    "other_bt": {
+        "prompts": [
+            "An X-ray of a benign bone tumor, not otherwise specified.",
+            "A non-aggressive bone lesion with well-defined borders and a sclerotic rim.",
+            "A focal benign process within the bone, showing no signs of aggressive features."
         ],
         "level1": "bone_tumor",
         "level2": "benign"
@@ -47,40 +56,40 @@
     },
     "synovial_osteochondroma": {
         "prompts": [
-            "An X-ray of synovial osteochondromatosis.",
+            "An X-ray of synovial osteochondromatosis, a benign condition of the joint lining.",
             "Multiple small, calcified or ossified loose bodies within a joint or bursa.",
-            "Radiograph showing multiple intra-articular nodules of similar size, a condition of the synovial membrane."
+            "Radiograph showing multiple intra-articular nodules of similar size, causing a 'bag of marbles' appearance."
         ],
         "level1": "bone_tumor",
         "level2": "benign"
     },
     "osteosarcoma": {
         "prompts": [
-            "An X-ray of osteosarcoma, a highly malignant bone tumor.",
-            "An aggressive, poorly defined lesion in the metaphysis, often around the knee.",
-            "Radiograph showing a 'sunburst' or 'sun-ray' periosteal reaction and bone destruction.",
-            "This scan presents a finding of Codman's triangle and production of tumor osteoid."
+            "An X-ray of osteosarcoma, a highly malignant bone tumor that produces bone.",
+            "An aggressive, poorly defined lesion in the metaphysis of a long bone, often around the knee.",
+            "Radiograph showing a 'sunburst' or 'sun-ray' periosteal reaction and extensive bone destruction.",
+            "This scan presents a finding of Codman's triangle and production of tumor osteoid, classic for osteosarcoma."
         ],
         "level1": "bone_tumor",
         "level2": "malignant"
-    },
-    "other_bt": {
-        "prompts": [
-            "An X-ray of a benign bone tumor not otherwise specified.",
-            "A non-aggressive bone lesion with well-defined borders.",
-            "A focal benign process within the bone."
-        ],
-        "level1": "bone_tumor",
-        "level2": "benign"
     },
     "other_mt": {
         "prompts": [
-            "An X-ray of a malignant bone tumor not otherwise specified.",
-            "An aggressive bone lesion with ill-defined borders and cortical destruction.",
-            "A focal malignant process within the bone, potentially a metastasis or another primary sarcoma."
+            "An X-ray of a malignant bone tumor, not otherwise specified.",
+            "An aggressive bone lesion with ill-defined borders, cortical destruction, and a soft tissue mass.",
+            "A focal malignant process within the bone, suspicious for a primary sarcoma or a metastatic lesion."
         ],
         "level1": "bone_tumor",
         "level2": "malignant"
+    },
+    "normal": {
+        "prompts": [
+            "A normal X-ray with no significant findings or abnormalities.",
+            "This radiograph shows a healthy bone and joint structure with intact cortex and normal density.",
+            "No evidence of fracture, dislocation, degenerative changes, or tumor."
+        ],
+        "level1": "misc",
+        "level2": "none"
     },
     "disc_space_narrowing": {
         "prompts": [
@@ -94,8 +103,8 @@
     "foraminal_stenosis": {
         "prompts": [
             "An X-ray showing foraminal stenosis, a type of degenerative condition.",
-            "Narrowing of the neural foramen, the passageway where spinal nerves exit.",
-            "Radiograph showing encroachment on the nerve root canal due to bone spurs or disc herniation."
+            "Narrowing of the neural foramen where spinal nerves exit.",
+            "Radiograph showing encroachment on a nerve root canal."
         ],
         "level1": "degenerative",
         "level2": "none"
@@ -103,7 +112,7 @@
     "osteophytes": {
         "prompts": [
             "An X-ray showing osteophytes, also known as bone spurs.",
-            "Bony projections that form along joint margins, a sign of joint degeneration.",
+            "Bony projections that form along joint margins.",
             "Li-pping of the vertebral endplates on a spinal radiograph."
         ],
         "level1": "degenerative",
@@ -111,38 +120,11 @@
     },
     "spondylolysthesis": {
         "prompts": [
-            "An X-ray showing spondylolisthesis, a condition where one vertebra slips forward over the one below it.",
-            "Anterior displacement of a vertebra, often seen on a lateral view of the spine.",
-            "This scan shows a misalignment of the spinal column, a type of spinal instability."
+            "An X-ray showing spondylolisthesis.",
+            "Anterior displacement or slippage of a vertebra over the one below it.",
+            "This scan shows a misalignment of the spinal column."
         ],
         "level1": "degenerative",
-        "level2": "none"
-    },
-    "vertebral_collapse": {
-        "prompts": [
-            "An X-ray of a vertebral collapse or compression fracture.",
-            "A loss of height in the vertebral body, often resulting in a wedge shape.",
-            "This scan shows a compression deformity of a vertebra, a sign of trauma or osteoporosis."
-        ],
-        "level1": "trauma",
-        "level2": "none"
-    },
-    "broken": {
-        "prompts": [
-            "An X-ray of a bone fracture, a type of trauma.",
-            "A clear fracture line showing a discontinuity in the bone cortex.",
-            "This medical scan presents a finding of displaced or angulated bone fragments."
-        ],
-        "level1": "trauma",
-        "level2": "none"
-    },
-    "surgical_implant": {
-        "prompts": [
-            "An X-ray showing a surgical implant.",
-            "Presence of a high-density metallic device, such as screws, plates, or rods, used for fixation.",
-            "This radiograph shows a joint replacement or arthroplasty."
-        ],
-        "level1": "misc",
         "level2": "none"
     },
     "other_lesions": {
@@ -154,31 +136,100 @@
         "level1": "misc",
         "level2": "none"
     },
-    "normal": {
+    "surgical_implant": {
         "prompts": [
-            "A normal X-ray with no significant findings.",
-            "This radiograph shows a healthy bone and joint structure.",
-            "No evidence of fracture, dislocation, degenerative changes, or tumor."
+            "An X-ray showing a surgical implant.",
+            "Presence of a high-density metallic device, such as a screw, plate, or rod.",
+            "This radiograph shows a joint replacement or arthroplasty."
         ],
         "level1": "misc",
         "level2": "none"
     },
+    "vertebral_collapse": {
+        "prompts": [
+            "An X-ray of a vertebral collapse or compression fracture.",
+            "A loss of height in the vertebral body, often resulting in a wedge shape.",
+            "This scan shows a compression deformity of a vertebra."
+        ],
+        "level1": "trauma",
+        "level2": "none"
+    },
+    "broken": {
+        "prompts": [
+            "An X-ray of a bone fracture, a type of trauma.",
+            "A clear fracture line showing a discontinuity in the bone cortex.",
+            "This medical scan presents a finding of displaced bone fragments."
+        ],
+        "level1": "trauma",
+        "level2": "none"
+    },
     "benign": {
-        "prompts": ["A well-defined lesion with a sharp, clear border and a narrow zone of transition.", "A non-aggressive bone lesion, often with a sclerotic (white) rim.", "No signs of cortical destruction or periosteal reaction."]
+        "prompts": [
+            "A benign or non-aggressive lesion.",
+            "A well-defined lesion with a narrow zone of transition.",
+            "A radiograph showing a benign process."
+        ]
     },
     "malignant": {
-        "prompts": ["An ill-defined, aggressive lesion with a wide zone of transition.", "A moth-eaten or permeative pattern of bone destruction.", "Signs of aggressive periosteal reaction and a soft tissue mass."]
+        "prompts": [
+            "A malignant or aggressive lesion.",
+            "An ill-defined lesion with cortical destruction.",
+            "A radiograph showing a malignant process."
+        ]
     },
     "bone_tumor": {
-        "prompts": ["An abnormal growth or mass within the bone.", "A focal lesion altering the normal bone architecture.", "An X-ray finding suspicious for a bone neoplasm."]
+        "prompts": [
+            "An X-ray image showing a type of bone tumor.",
+            "A radiograph with signs of a bone neoplasm.",
+            "A focal lesion altering the normal bone architecture."
+        ]
     },
     "degenerative": {
-        "prompts": ["Signs of joint wear and tear, such as joint space narrowing and osteophytes.", "Age-related changes affecting the joints or spine.", "Sclerosis and cyst formation in the subchondral bone."]
-    },
-    "trauma": {
-        "prompts": ["Evidence of acute injury, such as a fracture or dislocation.", "A break or crack in the bone caused by force.", "Post-traumatic changes in bone alignment."]
+        "prompts": [
+            "An X-ray image showing a type of degenerative disease.",
+            "A radiograph with signs of joint wear and tear.",
+            "Age-related changes affecting the joints or spine."
+        ]
     },
     "misc": {
-        "prompts": ["A miscellaneous finding, not classified as tumor, trauma, or degeneration.", "A normal study or a finding like a surgical implant.", "An incidental or non-specific radiographic finding."]
+        "prompts": [
+            "A miscellaneous or normal radiographic finding.",
+            "An X-ray that is not a tumor, trauma, or degenerative disease.",
+            "An incidental or non-specific radiographic finding."
+        ]
+    },
+    "trauma": {
+        "prompts": [
+            "An X-ray image showing a type of trauma.",
+            "A radiograph with signs of an acute injury.",
+            "Evidence of a fracture or dislocation."
+        ]
+    },
+    "hand": {
+        "prompts": ["An X-ray of the hand.", "A radiograph focusing on the hand region."]
+    },
+    "ulna": {
+        "prompts": ["An X-ray of the ulna bone.", "A radiograph focusing on the ulna region."]
+    },
+    "radius": {
+        "prompts": ["An X-ray of the radius bone.", "A radiograph focusing on the radius region."]
+    },
+    "humerus": {
+        "prompts": ["An X-ray of the humerus bone.", "A radiograph focusing on the humerus region."]
+    },
+    "foot": {
+        "prompts": ["An X-ray of the foot.", "A radiograph focusing on the foot region."]
+    },
+    "tibia": {
+        "prompts": ["An X-ray of the tibia bone.", "A radiograph focusing on the tibia region."]
+    },
+    "fibula": {
+        "prompts": ["An X-ray of the fibula bone.", "A radiograph focusing on the fibula region."]
+    },
+    "femur": {
+        "prompts": ["An X-ray of the femur bone.", "A radiograph focusing on the femur region."]
+    },
+    "pelvis": {
+        "prompts": ["An X-ray of the pelvis.", "A radiograph focusing on the pelvis region."]
     }
 }
