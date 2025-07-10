@@ -206,30 +206,82 @@
         ]
     },
     "hand": {
-        "prompts": ["An X-ray of the hand.", "A radiograph focusing on the hand region."]
+        "prompts": [
+            "This finding is located in the hand.",
+            "A lesion appearing on a bone within the hand.",
+            "An abnormality seen in the region of the hand.",
+            "A finding present in the carpal, metacarpal, or phalangeal bones of the hand."
+        ]
     },
     "ulna": {
-        "prompts": ["An X-ray of the ulna bone.", "A radiograph focusing on the ulna region."]
+        "prompts": [
+            "This finding is located in the ulna bone.",
+            "A lesion appearing on the ulna, one of the two forearm bones.",
+            "An abnormality seen in the ulnar region of the forearm.",
+            "A finding present on the ulna."
+        ]
     },
     "radius": {
-        "prompts": ["An X-ray of the radius bone.", "A radiograph focusing on the radius region."]
+        "prompts": [
+            "This finding is located in the radius bone.",
+            "A lesion appearing on the radius, the other forearm bone.",
+            "An abnormality seen in the radial region of the forearm.",
+            "A finding present on the radius."
+        ]
     },
     "humerus": {
-        "prompts": ["An X-ray of the humerus bone.", "A radiograph focusing on the humerus region."]
+        "prompts": [
+            "This finding is located in the humerus, the bone of the upper arm.",
+            "A lesion appearing on the humeral shaft, head, or neck.",
+            "An abnormality seen in the region of the humerus.",
+            "A finding present on the humerus bone."
+        ]
     },
     "foot": {
-        "prompts": ["An X-ray of the foot.", "A radiograph focusing on the foot region."]
+        "prompts": [
+            "This finding is located in the foot.",
+            "A lesion appearing on a bone of the foot, such as a tarsal or metatarsal.",
+            "An abnormality seen in the region of the foot.",
+            "A finding present in the bones of the foot."
+        ]
     },
     "tibia": {
-        "prompts": ["An X-ray of the tibia bone.", "A radiograph focusing on the tibia region."]
+        "prompts": [
+            "This finding is located in the tibia, also known as the shin bone.",
+            "A lesion appearing on the tibial plateau or shaft.",
+            "An abnormality seen in the tibial region of the lower leg.",
+            "A finding present on the tibia."
+        ]
     },
     "fibula": {
-        "prompts": ["An X-ray of the fibula bone.", "A radiograph focusing on the fibula region."]
+        "prompts": [
+            "This finding is located in the fibula, the smaller bone of the lower leg.",
+            "A lesion appearing on the fibula bone.",
+            "An abnormality seen in the fibular region, alongside the tibia.",
+            "A finding present on the fibula."
+        ]
     },
     "femur": {
-        "prompts": ["An X-ray of the femur bone.", "A radiograph focusing on the femur region."]
+        "prompts": [
+            "This finding is located in the femur, also known as the thigh bone.",
+            "A lesion appearing on the femoral head, neck, or shaft.",
+            "An abnormality seen in the region of the femur, the longest bone in the body.",
+            "A finding present on the femur bone."
+        ]
     },
     "pelvis": {
-        "prompts": ["An X-ray of the pelvis.", "A radiograph focusing on the pelvis region."]
+        "prompts": [
+            "This finding is located in the pelvis.",
+            "A lesion appearing on a bone of the pelvic girdle, such as the ilium or ischium.",
+            "An abnormality seen in the pelvic region.",
+            "A finding present on a pelvic bone."
+        ]
+    },
+    "unknown": {
+        "prompts": [
+            "This finding is in an unspecified or unknown body part.",
+            "The location of this finding is not determined.",
+            "An abnormality seen in an unknown anatomical region."
+        ]
     }
 }

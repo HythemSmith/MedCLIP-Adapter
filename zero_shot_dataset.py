@@ -1,21 +1,15 @@
-# FILE: zero_shot_dataset.py
-# VERSION: Hoàn chỉnh với Data Augmentation
-
 import os
-import random
-import pandas as pd
 import torch
-from PIL import Image
 from torch.utils.data import Dataset
-from torchvision.transforms import functional as TF
-import torchvision.transforms as T
-import numpy as np # Thêm import numpy
-# Thêm import cho Albumentations
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from torchvision import transforms as T
+import torchvision.transforms.functional as TF
+from PIL import Image
+import numpy as np
+import pandas as pd
 import cv2
-# --- Các hằng số định nghĩa lớp không thay đổi ---
-# Đảm bảo các danh sách này khớp với cấu hình trong file train.py
+import glob # <<< THÊM IMPORT GLOB >>>
+
+# ... (Các danh sách và map không đổi) ...
 LEVEL1_NAMES = ['bone_tumor', 'degenerative', 'misc', 'trauma']
 LEVEL2_NAMES = ['benign', 'malignant']
 LEVEL3_NAMES = [
@@ -24,264 +18,215 @@ LEVEL3_NAMES = [
     'disc_space_narrowing', 'foraminal_stenosis', 'osteophytes', 'normal', 'other_lesions',
     'spondylolysthesis', 'surgical_implant', 'vertebral_collapse', 'broken'
 ]
-POSITION_NAMES = [
-    'hand', 'ulna', 'radius', 'humerus', 'foot', 'tibia', 'fibula', 'femur', 'pelvis'
-]
-LEVEL1_MAP = {name: i for i, name in enumerate(LEVEL1_NAMES)}
-LEVEL2_MAP = {name: i for i, name in enumerate(LEVEL2_NAMES)}
-LEVEL3_MAP = {name: i for i, name in enumerate(LEVEL3_NAMES)}
-# Bản đồ vị trí tương ứng với chỉ số trong tensor
-POSITION_MAP = {name: i for i, name in enumerate(POSITION_NAMES)}
+POSITION_NAMES = ['hand', 'ulna', 'radius', 'humerus', 'foot', 'tibia', 'fibula', 'femur', 'pelvis', 'unknown']
 
-def get_image_position(image_name, csv_path=r'prompt\position.csv'):
-    try:
-        # Load the position.csv file
-        df = pd.read_csv(csv_path)
-        
-        # Create a dictionary mapping image names to positions
-        position_map = df.set_index('name')['position'].to_dict()
-        
-        # Return the position for the given image name, or None if not found
-        return position_map.get(image_name)
-    
-    except FileNotFoundError:
-        print(f"Error: Could not find file at '{csv_path}'.")
-        return None
-    except Exception as e:
-        print(f"Error: Failed to process position.csv. {str(e)}")
-        return None
+LEVEL1_MAP = {v: i for i, v in enumerate(LEVEL1_NAMES)}
+LEVEL2_MAP = {v: i for i, v in enumerate(LEVEL2_NAMES)}
+LEVEL3_MAP = {v: i for i, v in enumerate(LEVEL3_NAMES)}
+POSITION_MAP = {v: i for i, v in enumerate(POSITION_NAMES)}
 
 class ResizePadToSquare:
-    """
-    Resize ảnh về kích thước mong muốn mà vẫn giữ tỷ lệ, sau đó thêm padding.
-    Đồng thời trả về một "valid_region_mask" để xác định vùng ảnh gốc.
-    """
-    def __init__(self, size, interpolation=Image.BICUBIC):
+    # ... (Nội dung class không đổi) ...
+    def __init__(self, size):
         self.size = size
-        self.interpolation = interpolation
 
     def __call__(self, img):
         w, h = img.size
-        # Giữ tỷ lệ khung hình
         scale = self.size / max(w, h)
         new_w, new_h = int(w * scale), int(h * scale)
-        
-        # Resize ảnh
-        img_resized = img.resize((new_w, new_h), resample=self.interpolation)
-        
-        # Tính toán padding để đưa ảnh vào giữa
+        img_resized = img.resize((new_w, new_h), resample=Image.BICUBIC)
         pad_w = self.size - new_w
         pad_h = self.size - new_h
         padding = (pad_w // 2, pad_h // 2, pad_w - pad_w // 2, pad_h - pad_h // 2)
-        
-        # Áp dụng padding
         img_padded = TF.pad(img_resized, padding, fill=0)
-
-        # Tạo valid_region_mask: 1 cho vùng ảnh gốc, 0 cho vùng padding
-        valid_mask = torch.zeros(self.size, self.size, dtype=torch.float32)
-        valid_mask[pad_h // 2 : pad_h // 2 + new_h, pad_w // 2 : pad_w // 2 + new_w] = 1
-        
+        valid_mask = torch.zeros(self.size, self.size)
+        valid_mask[padding[1]:padding[1]+new_h, padding[0]:padding[0]+new_w] = 1
         return img_padded, valid_mask
 
 
-# --- Lớp Dataset cơ sở đã được tích hợp Data Augmentation ---
-class MedicalImageDatasetBase(Dataset):
-    def __init__(self, metadata_path, resize=224, dataset_source_filter=None, is_train=False):
-        try:
-            df_all = pd.read_csv(metadata_path)
-        except FileNotFoundError:
-
-            print(f"Lỗi: Không tìm thấy file metadata tại '{metadata_path}'.")
-            raise
-
-        if dataset_source_filter:
-            self.df = df_all[df_all['source'] == dataset_source_filter].copy()
-        else:
-            self.df = df_all.copy()
-        
-        print(f"Đã tải {len(self.df)} bản ghi từ metadata.")
+class ZeroShotDatasetBase(Dataset):
+    # ... (Hầu hết nội dung class không đổi, trừ __getitem__) ...
+    def __init__(self, root_dir, resize=224, position_csv="prompt/position.csv"):
+        self.root_dir = root_dir
         self.resize = resize
-        self.is_train = is_train
+        self.resizer = ResizePadToSquare(resize)
+        self.to_tensor = T.ToTensor()
+        self.position_map = self._load_position_map(position_csv)
+        self.image_info = []
 
-        # Pipeline Augmentation đơn giản và an toàn
-        if self.is_train:
-            print("INFO: Chế độ Train - Bật Augmentation (phiên bản đơn giản hóa).")
-            self.transform = A.Compose([
-                A.HorizontalFlip(p=0.5),
-                A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=15, p=0.7, border_mode=0, value=0),
-                A.ColorJitter(brightness=0.2, contrast=0.2, p=0.5),
-                A.LongestMaxSize(max_size=self.resize),
-                A.PadIfNeeded(min_height=self.resize, min_width=self.resize, border_mode=0, value=0),
-                ToTensorV2(),
-            ])
-        else:
-            print("INFO: Chế độ Test/Validation - Chỉ Resize và Pad.")
-            self.transform = A.Compose([
-                A.LongestMaxSize(max_size=self.resize),
-                A.PadIfNeeded(min_height=self.resize, min_width=self.resize, border_mode=0, value=0),
-                ToTensorV2(),
-            ])
-        self.image_paths = []
-        self.image_info_map = {}
+    def _load_position_map(self, csv_path):
+        if not os.path.exists(csv_path):
+            print(f"[WARN] position.csv not found at {csv_path}")
+            return {}
+        df = pd.read_csv(csv_path)
+        return dict(zip(df['name'], df['position']))
 
-    def _prepare_data(self, filtered_df):
-        self.image_info_map = filtered_df.groupby('image_path').apply(lambda x: x.to_dict('records')).to_dict()
-        self.image_paths = list(self.image_info_map.keys())
-        print(f"Đã chuẩn bị dataset với {len(self.image_paths)} ảnh độc nhất.")
-
-    def __len__(self):
-        return len(self.image_paths)
-    
     def _find_xray_film_bbox(self, pil_image):
-        """
-        Logic crop mạnh mẽ hơn: Đảo ngược ảnh để tìm phim X-quang.
-        """
         gray_image = np.array(pil_image.convert('L'))
-        
-        # Đảo ngược ảnh: nền trắng -> đen, phim đen -> trắng
-        inverted_image = cv2.bitwise_not(gray_image)
-        
-        # Ngưỡng hóa để làm nổi bật phim (giờ đã là màu trắng)
-        _, thresh = cv2.threshold(inverted_image, 50, 255, cv2.THRESH_BINARY)
-        
+        inverted = 255 - gray_image
+        _, thresh = cv2.threshold(inverted, 30, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
         if not contours:
             return None
-
-        # Tìm contour lớn nhất, đây chính là phim X-quang
-        largest_contour = max(contours, key=cv2.contourArea)
-        
-        # Lấy bounding box của nó
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        
-        # Thêm một chút padding để không bị cắt sát viền (tùy chọn)
+        largest = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(largest)
         padding = 5
-        x = max(0, x - padding)
-        y = max(0, y - padding)
-        w = w + (padding * 2)
-        h = h + (padding * 2)
-        
-        return (x, y, x + w, y + h)
+        return (max(0, x - padding), max(0, y - padding), min(gray_image.shape[1], x + w + padding), min(gray_image.shape[0], y + h + padding))
+
+    def __len__(self):
+        return len(self.image_info)
 
     def __getitem__(self, idx):
-        img_path = self.image_paths[idx]
-        info_list = self.image_info_map[img_path]
-        img_name = os.path.basename(img_path)
-        pos_names = get_image_position(img_name)
-        try:
-            image_pil = Image.open(img_path).convert("RGB")
-        except (FileNotFoundError, IOError):
-            return None
-
-        # 1. TÍNH TOÁN BBOX TỪ ẢNH GỐC BẰNG LOGIC MỚI
-        bbox = self._find_xray_film_bbox(image_pil)
-        if bbox is None:
-            print(f"Cảnh báo: Không tìm thấy phim X-quang trong ảnh {img_path}. Bỏ qua.")
-            return None
-
-        # 2. CROP ẢNH VÀ MASK BẰNG CÙNG MỘT BBOX
-        image_pil_cropped = image_pil.crop(bbox)
+        if idx >= len(self.image_info):
+            raise IndexError("Index out of range")
+        img_path, class_infos = self.image_info[idx]
         
-        record = info_list[0]
-        mask_path = record.get('mask_path')
-        mask_pil_cropped = None
-        if mask_path and pd.notna(mask_path) and os.path.exists(mask_path):
-            try:
-                mask_pil = Image.open(mask_path).convert("L")
-                mask_pil_cropped = mask_pil.crop(bbox)
-            except Exception:
-                mask_pil_cropped = None
-        
-        if mask_pil_cropped is None:
-            mask_pil_cropped = Image.new('L', image_pil_cropped.size, 0)
+        image = Image.open(img_path).convert("RGB")
+        bbox = self._find_xray_film_bbox(image)
+        if bbox is not None:
+            image = image.crop(bbox)
+        image, valid_mask = self.resizer(image)
+        image = self.to_tensor(image)
 
-        # 3. CHUYỂN SANG NUMPY ĐỂ ĐƯA VÀO ALBUMENTATIONS
-        image_np = np.array(image_pil_cropped)
-        mask_np = np.array(mask_pil_cropped)
-
-        # 4. ÁP DỤNG AUGMENTATION
-        augmented = self.transform(image=image_np, mask=mask_np)
-        image = augmented['image'].float() / 255.0
-        mask_transformed = augmented['mask'].float().unsqueeze(0)
-
-        # 5. BỎ SOFT-MASKING (Không cần thiết nữa vì ảnh đầu vào đã rất sạch)
-        # Chỉ cần tạo valid_region_mask để dùng trong vòng lặp huấn luyện
-        valid_region_mask = (image[0, :, :] > 0).float()
-        
-        # ... Phần còn lại của hàm để tạo label và mask_tensor không đổi
         H, W = image.shape[1], image.shape[2]
         mask_tensor = torch.zeros((len(LEVEL3_NAMES), H, W), dtype=torch.float32)
-        label_level1 = torch.zeros(len(LEVEL1_NAMES), dtype=torch.float32)
-        label_level2 = torch.zeros(len(LEVEL2_NAMES), dtype=torch.float32)
-        label_level3 = torch.zeros(len(LEVEL3_NAMES), dtype=torch.float32)
-        label_pos = torch.zeros(len(POSITION_NAMES), dtype=torch.float32)
+        label_level1 = torch.zeros(len(LEVEL1_NAMES))
+        label_level2 = torch.zeros(len(LEVEL2_NAMES))
+        label_level3 = torch.zeros(len(LEVEL3_NAMES))
+        label_pos = torch.zeros(len(POSITION_NAMES))
 
-        for rec in info_list:
-            class_name = rec.get('class_name')
-            l1_name = rec.get('level1')
-            l2_name = rec.get('level2')
-            pos_names = rec.get('position')
-            print(f"Processing position: {pos_names}")
-            if class_name and class_name in LEVEL3_MAP:
-                l3_idx = LEVEL3_MAP[class_name]
-                label_level3[l3_idx] = 1.0
-                if mask_transformed is not None:
-                     mask_tensor[l3_idx] = mask_transformed.squeeze(0)
-            if l1_name and l1_name in LEVEL1_MAP:
-                label_level1[LEVEL1_MAP[l1_name]] = 1.0
-            if l2_name and l2_name in LEVEL2_MAP:
-                label_level2[LEVEL2_MAP[l2_name]] = 1.0
-            for pos_name in pos_names.split(','):
+        # Xử lý các nhãn bệnh lý
+        for info in class_infos:
+            class_name = info["class_name"]
+            l1 = info["level1"]
+            l2 = info["level2"]
+            mask_path = info["mask_path"]
+            
+            if class_name in LEVEL3_MAP:
+                c = LEVEL3_MAP[class_name]
+                label_level3[c] = 1.0
+                if mask_path and os.path.exists(mask_path): # Kiểm tra mask_path có tồn tại và không rỗng
+                    mask = Image.open(mask_path).convert("L")
+                    if bbox is not None:
+                        mask = mask.crop(bbox)
+                    mask, _ = self.resizer(mask)
+                    mask_tensor[c] = self.to_tensor(mask).squeeze(0)
+
+            if l1 in LEVEL1_MAP:
+                label_level1[LEVEL1_MAP[l1]] = 1.0
+            if l2 in LEVEL2_MAP:
+                label_level2[LEVEL2_MAP[l2]] = 1.0
+
+        # <<< SỬA LỖI: XỬ LÝ VỊ TRÍ MỘT LẦN CHO MỖI ẢNH, BÊN NGOÀI VÒNG LẶP TRÊN >>>
+        has_position = False
+        if class_infos: # Đảm bảo class_infos không rỗng
+            image_name = class_infos[0]["image_name"]
+            if image_name in self.position_map:
+                pos_str = self.position_map.get(image_name, None)
+                if isinstance(pos_str, str) and pos_str.strip():
+                    for pos in pos_str.split(','):
+                        pos = pos.strip().lower()
+                        if pos in POSITION_MAP and pos != 'unknown':
+                            label_pos[POSITION_MAP[pos]] = 1.0
+                            has_position = True
+        
+        if not has_position:
+            label_pos[POSITION_MAP['unknown']] = 1.0
+
+        return image, mask_tensor, label_level1, label_level2, label_level3, valid_mask, label_pos
+
+class ZeroShotTrainDataset(ZeroShotDatasetBase):
+    def __init__(self, root_dir="BTXRD_cleaned", excluded_class=None, resize=224, position_csv="prompt/position.csv"):
+        super().__init__(root_dir, resize, position_csv)
+        self.excluded_class = excluded_class
+        self._build_dataset(exclude=True)
+
+    def _build_dataset(self, exclude=True):
+        image_dict = {}
+        for root, _, files in os.walk(self.root_dir):
+            for file in files:
+                if not file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                    continue
+                img_path = os.path.join(root, file)
+                parts = img_path.split(os.sep)
+                if "images" not in parts:
+                    continue
+                try:
+                    l3, l2, l1 = parts[-3], parts[-4], parts[-5]
+                except IndexError:
+                    continue
+                if l3 == self.excluded_class:
+                    continue
+
+                # <<< SỬA LỖI: TÌM MASK VỚI ĐUÔI FILE LINH HOẠT BẰNG GLOB >>>
+                dir_name, image_filename = os.path.split(img_path)
+                image_name_base, _ = os.path.splitext(image_filename)
+                mask_dir = dir_name.replace(os.sep + "images", os.sep + "masks")
                 
-                pos_name = pos_name.strip().lower()
-                if pos_name in POSITION_MAP:
-                    label_pos[POSITION_MAP[pos_name]] = 1.0
-        return image, mask_tensor, label_level1, label_level2, label_level3, valid_region_mask, label_pos
+                search_pattern = os.path.join(mask_dir, f"{image_name_base}_mask.*")
+                found_masks = glob.glob(search_pattern)
+                
+                mask_path = "" # Mặc định là chuỗi rỗng nếu không tìm thấy
+                if found_masks:
+                    mask_path = found_masks[0] # Lấy kết quả đầu tiên tìm được
+                # <<< KẾT THÚC SỬA LỖI >>>
 
+                image_name = os.path.basename(img_path)
+                if img_path not in image_dict:
+                    image_dict[img_path] = []
+                image_dict[img_path].append({
+                    "class_name": l3, "level1": l1, "level2": l2,
+                    "mask_path": mask_path, "image_name": image_name
+                })
+        filtered = {
+            k: v for k, v in image_dict.items()
+            if all(rec["class_name"] != self.excluded_class for rec in v)
+        }
+        self.image_info = list(filtered.items())
+        print(f"✅ Train dataset loaded: {len(self.image_info)} samples (excluded: '{self.excluded_class}')")
 
-# --- Lớp MedicalTrainDataset kế thừa và BẬT augmentation ---
-class MedicalTrainDataset(MedicalImageDatasetBase):
-    def __init__(self, metadata_path, excluded_class=None, resize=224, dataset_source_filter=None):
-        # Truyền is_train=True vào lớp cha để bật augmentation
-        super().__init__(
-            metadata_path, 
-            resize=resize, 
-            dataset_source_filter=dataset_source_filter, 
-            is_train=True
-        )
+class ZeroShotTestDataset(ZeroShotDatasetBase):
+    def __init__(self, root_dir="BTXRD_cleaned", target_class=None, resize=224, position_csv="position.csv"):
+        super().__init__(root_dir, resize, position_csv)
+        self.target_class = target_class
+        self._build_dataset()
 
-        df_filtered = self.df
-        if excluded_class:
-            print(f"Loại bỏ lớp '{excluded_class}' cho quá trình huấn luyện zero-shot.")
-            # Tìm tất cả các ảnh có chứa lớp bị loại trừ
-            paths_to_exclude = df_filtered[df_filtered['class_name'] == excluded_class]['image_path'].unique()
-            # Loại bỏ tất cả các dòng có đường dẫn ảnh đó
-            df_filtered = df_filtered[~df_filtered['image_path'].isin(paths_to_exclude)]
-            print(f"Đã loại bỏ {len(paths_to_exclude)} ảnh chứa lớp bị loại trừ.")
+    def _build_dataset(self):
+        image_dict = {}
+        for root, _, files in os.walk(self.root_dir):
+            for file in files:
+                if not file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                    continue
+                img_path = os.path.join(root, file)
+                parts = img_path.split(os.sep)
+                if "images" not in parts:
+                    continue
+                try:
+                    l3, l2, l1 = parts[-3], parts[-4], parts[-5]
+                except IndexError:
+                    continue
+                if l3 != self.target_class:
+                    continue
 
-        self._prepare_data(df_filtered)
+                # <<< SỬA LỖI: TÌM MASK VỚI ĐUÔI FILE LINH HOẠT BẰNG GLOB >>>
+                dir_name, image_filename = os.path.split(img_path)
+                image_name_base, _ = os.path.splitext(image_filename)
+                mask_dir = dir_name.replace(os.sep + "images", os.sep + "masks")
 
+                search_pattern = os.path.join(mask_dir, f"{image_name_base}_mask.*")
+                found_masks = glob.glob(search_pattern)
 
-# --- Lớp MedicalTestDataset kế thừa và TẮT augmentation ---
-class MedicalTestDataset(MedicalImageDatasetBase):
-    def __init__(self, metadata_path, target_class, resize=224, dataset_source_filter=None):
-        # Truyền is_train=False vào lớp cha để tắt augmentation
-        super().__init__(
-            metadata_path, 
-            resize=resize, 
-            dataset_source_filter=dataset_source_filter, 
-            is_train=False
-        )
-        
-        print(f"Tạo tập test cho lớp unseen: '{target_class}'")
-        
-        df_source_filtered = self.df
-        # Tìm các ảnh thuộc lớp mục tiêu
-        test_image_paths = df_source_filtered[df_source_filtered['class_name'] == target_class]['image_path'].unique()
-        
-        # Lấy tất cả các nhãn (đa nhãn) cho những ảnh đã được chọn vào tập test
-        df_filtered = df_source_filtered[df_source_filtered['image_path'].isin(test_image_paths)]
-        
-        print(f"Đã tìm thấy {len(test_image_paths)} ảnh để kiểm thử.")
-        self._prepare_data(df_filtered)
+                mask_path = "" # Mặc định là chuỗi rỗng nếu không tìm thấy
+                if found_masks:
+                    mask_path = found_masks[0] # Lấy kết quả đầu tiên tìm được
+                # <<< KẾT THÚC SỬA LỖI >>>
+
+                image_name = os.path.basename(img_path)
+                if img_path not in image_dict:
+                    image_dict[img_path] = []
+                image_dict[img_path].append({
+                    "class_name": l3, "level1": l1, "level2": l2,
+                    "mask_path": mask_path, "image_name": image_name
+                })
+        self.image_info = list(image_dict.items())
+        print(f"✅ Test dataset loaded: {len(self.image_info)} samples for class '{self.target_class}'")

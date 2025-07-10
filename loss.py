@@ -1,9 +1,12 @@
+# loss.py
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 # --- Focal Loss ---
+# (Phần FocalLoss giữ nguyên, không thay đổi)
 class FocalLoss(nn.Module):
     def __init__(self, apply_nonlin=None, alpha=None, gamma=2, balance_index=0, smooth=1e-5, size_average=True):
         super(FocalLoss, self).__init__()
@@ -56,6 +59,7 @@ class FocalLoss(nn.Module):
         return loss.mean() if self.size_average else loss.sum()
 
 # --- Dice Loss ---
+# (Phần BinaryDiceLoss giữ nguyên, không thay đổi)
 class BinaryDiceLoss(nn.Module):
     def __init__(self, smooth=1.0):
         super(BinaryDiceLoss, self).__init__()
@@ -69,41 +73,48 @@ class BinaryDiceLoss(nn.Module):
         dice = (2 * intersection.sum(1) + self.smooth) / (input_flat.sum(1) + target_flat.sum(1) + self.smooth)
         return 1 - dice.mean()
 
-# --- Multi-channel BCE + Dice for Segmentation ---
-def multi_channel_focal_dice_loss(pred, target):
-    """
-    Phiên bản kết hợp BCE và Dice Loss ổn định về mặt số học.
-    Hàm này tính toán Dice loss trên từng mẫu và chỉ lấy trung bình
-    các giá trị loss hợp lệ (nơi có ground truth mask), ngăn ngừa mất ổn định.
-    """
-    # 1. Loss theo từng pixel (BCE)
-    bce_loss = F.binary_cross_entropy_with_logits(pred, target)
 
-    # 2. Loss theo hình dạng (Dice - Phiên bản ổn định)
-    pred_probs = torch.sigmoid(pred)
+# --- Multi-channel BCE + Dice for Segmentation (ĐÃ CẬP NHẬT) ---
+def focal_dice_loss(pred_logits, target, valid_region_mask, gamma=2.0, alpha=0.25):
+    """
+    Kết hợp Focal Loss và Dice Loss, được triển khai đúng cho bài toán multi-label segmentation.
+    - pred_logits: Đầu ra của model, CHƯA qua sigmoid.
+    """
+    # --- 1. Tính Focal Loss (chỉ trên vùng hợp lệ) ---
+    bce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
     
-    intersection = (pred_probs * target).sum(dim=(2, 3))
-    union = pred_probs.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
+    # Tính pt
+    pred_probs = torch.sigmoid(pred_logits)
+    p_t = pred_probs * target + (1 - pred_probs) * (1 - target)
     
-    # Dice score cho từng mẫu trong batch và từng class
+    # Tính modulating factor
+    modulating_factor = (1.0 - p_t).pow(gamma)
+    
+    # Tính alpha weight
+    alpha_t = alpha * target + (1 - alpha) * (1 - target)
+    
+    focal_loss_pixelwise = alpha_t * modulating_factor * bce_loss
+    
+    # Áp dụng valid_region_mask
+    focal_loss_masked = focal_loss_pixelwise * valid_region_mask.unsqueeze(1)
+    
+    # Lấy trung bình trên toàn bộ các pixel hợp lệ trong batch
+    # Thêm 1e-6 để tránh chia cho 0
+    focal_loss = focal_loss_masked.sum() / (valid_region_mask.sum() * target.shape[1] + 1e-6)
+
+    # --- 2. Tính Dice Loss (giữ nguyên, đã đúng) ---
+    pred_probs_masked = pred_probs * valid_region_mask.unsqueeze(1)
+    target_masked = target * valid_region_mask.unsqueeze(1)
+    
+    intersection = (pred_probs_masked * target_masked).sum(dim=(2, 3))
+    union = pred_probs_masked.sum(dim=(2, 3)) + target_masked.sum(dim=(2, 3))
+    
     dice_score = (2. * intersection + 1e-6) / (union + 1e-6)
-
-    # <<< THAY ĐỔI DUY NHẤT VÀ QUAN TRỌNG NHẤT Ở ĐÂY >>>
-    # Kẹp giá trị dice_score để đảm bảo nó luôn nằm trong khoảng [0, 1]
-    # Điều này ngăn chặn lỗi làm tròn gây ra score > 1.
-    dice_score = torch.clamp(dice_score, 0.0, 1.0)
     
-    # Bây giờ, dice_loss chắc chắn sẽ không bao giờ âm
-    dice_loss_per_sample = 1. - dice_score
-
-    # Chỉ tính loss trên các mẫu có mask (target.sum > 0)
-    mask_has_gt = (target.sum(dim=(2, 3)) > 0)
-
+    mask_has_gt = (target_masked.sum(dim=(2, 3)) > 0)
     if mask_has_gt.sum() > 0:
-        # Lấy trung bình của các giá trị loss HỢP LỆ
-        dice_loss = dice_loss_per_sample[mask_has_gt].mean()
+        dice_loss = (1. - dice_score[mask_has_gt]).mean()
     else:
-        dice_loss = torch.tensor(0.0, device=pred.device)
+        dice_loss = torch.tensor(0.0, device=pred_logits.device)
 
-    # Trả về 2 thành phần loss riêng biệt
-    return bce_loss, dice_loss
+    return focal_loss, dice_loss
