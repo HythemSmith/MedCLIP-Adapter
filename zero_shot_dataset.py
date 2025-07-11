@@ -51,7 +51,6 @@ class ZeroShotDatasetBase(Dataset):
         # 2. Sao chép kênh thang độ xám đó thành 3 kênh để tương thích với model.
         # 3. Chuyển ảnh PIL thành Tensor PyTorch.
         self.image_transform = T.Compose([
-            T.Grayscale(num_output_channels=3),
             T.ToTensor()
         ])
         
@@ -76,7 +75,7 @@ class ZeroShotDatasetBase(Dataset):
         img_path, class_infos = self.image_info[idx]
         
         # 1. Mở ảnh. Vì ảnh đã là RGB, không cần .convert()
-        image_pil = Image.open(img_path)
+        image_pil = Image.open(img_path).convert("RGB")
         
         # 2. Resize và pad (vẫn thực hiện trên ảnh PIL)
         image_padded, valid_mask = self.resizer(image_pil)
